@@ -619,36 +619,54 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
         // CONFIGURACIÓN DE TU PROYECTO FIREBASE
         const firebaseConfig = {
-            apiKey: "AIzaSyD-impetec-hub-pro-v5-realtime-key",
-            authDomain: "impetechub.firebaseapp.com",
-            databaseURL: "https://impetechub-default-rtdb.firebaseio.com",
-            projectId: "impetechub",
-            storageBucket: "impetechub.appspot.com",
-            messagingSenderId: "102938475610",
-            appId: "1:102938475610:web:a1b2c3d4e5f67890"
+            databaseURL: "https://controladmin-95a91-default-rtdb.firebaseio.com/"
         };
 
         let db = null;
         let isFirebaseConnected = false;
 
-        // Intentar inicializar Firebase
+        // Intentar inicializar Firebase y Autenticación Anónima
         try {
-            if (firebaseConfig.databaseURL && !firebaseConfig.databaseURL.includes("tu-proyecto")) {
-                const app = initializeApp(firebaseConfig);
-                db = getDatabase(app);
-                isFirebaseConnected = true;
-                
-                const badge = document.getElementById('db-status-badge');
-                if (badge) {
-                    badge.className = "flex items-center gap-1.5 text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-full font-medium";
-                    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Realtime Conectado</span>`;
-                }
-            } else {
-                updateConnectionBadgeWarning("Modo Local / Demo (Sin credenciales)");
-            }
+            const app = initializeApp(firebaseConfig);
+            db = getDatabase(app);
+            const auth = getAuth(app);
+
+            // Iniciar sesión de manera anónima para habilitar el acceso general sin pedir login
+            signInAnonymously(auth)
+                .then(() => {
+                    isFirebaseConnected = true;
+                    const badge = document.getElementById('db-status-badge');
+                    if (badge) {
+                        badge.className = "flex items-center gap-1.5 text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-full font-medium";
+                        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Realtime Conectado</span>`;
+                    }
+                    
+                    // Escuchar cambios en Realtime Database
+                    const rootRef = ref(db, 'impetecHub');
+                    onValue(rootRef, (snapshot) => {
+                        const data = snapshot.val();
+                        if (data) {
+                            if (data.projects) window.projects = data.projects;
+                            if (data.generalStock) window.generalStock = data.generalStock;
+                            if (data.activityLogs) window.activityLogs = data.activityLogs;
+
+                            localStorage.setItem('impetec_hub_projects', JSON.stringify(window.projects));
+                            localStorage.setItem('impetec_hub_stock', JSON.stringify(window.generalStock));
+                            localStorage.setItem('impetec_hub_logs', JSON.stringify(window.activityLogs));
+
+                            renderProjects();
+                            updateCharts();
+                        }
+                    });
+                })
+                .catch((err) => {
+                    console.error("Error al autenticar en Firebase:", err);
+                    updateConnectionBadgeWarning("Modo Local / Error Auth");
+                });
         } catch (err) {
             console.error("Error al conectar Firebase Realtime:", err);
             updateConnectionBadgeWarning("Modo Offline / LocalStorage");
@@ -707,26 +725,6 @@
         window.activityLogs = JSON.parse(localStorage.getItem('impetec_hub_logs')) || [
             { id: 1, timestamp: new Date().toLocaleString(), action: 'Sistema Iniciado', detail: 'Versión Enterprise v5.0 lista con sincronización Realtime.' }
         ];
-
-        // Escuchar cambios en Realtime Database si está configurado
-        if (isFirebaseConnected && db) {
-            const rootRef = ref(db, 'impetecHub');
-            onValue(rootRef, (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    if (data.projects) window.projects = data.projects;
-                    if (data.generalStock) window.generalStock = data.generalStock;
-                    if (data.activityLogs) window.activityLogs = data.activityLogs;
-
-                    localStorage.setItem('impetec_hub_projects', JSON.stringify(window.projects));
-                    localStorage.setItem('impetec_hub_stock', JSON.stringify(window.generalStock));
-                    localStorage.setItem('impetec_hub_logs', JSON.stringify(window.activityLogs));
-
-                    renderProjects();
-                    updateCharts();
-                }
-            });
-        }
 
         // Función global para sincronizar guardar
         window.saveState = function() {
