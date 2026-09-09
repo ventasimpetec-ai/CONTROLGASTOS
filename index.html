@@ -51,7 +51,7 @@
                 </div>
                 <span class="font-bold text-xl tracking-wide bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">ImpetecHub Pro</span>
                 <span class="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded-full border border-slate-600">v5.0 Realtime</span>
-                <!-- Indicator de estado de conexión Firebase -->
+                <!-- Indicador de estado de conexión Firebase -->
                 <div id="db-status-badge" class="flex items-center gap-1.5 text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2.5 py-1 rounded-full font-medium">
                     <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
                     <span>Conectando...</span>
@@ -619,57 +619,104 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
         // CONFIGURACIÓN DE TU PROYECTO FIREBASE
         const firebaseConfig = {
-            databaseURL: "https://controladmin-95a91-default-rtdb.firebaseio.com/"
+            apiKey: "TU_API_KEY_AQUI",
+            authDomain: "tu-proyecto.firebaseapp.com",
+            databaseURL: "https://tu-proyecto-default-rtdb.firebaseio.com",
+            projectId: "tu-proyecto",
+            storageBucket: "tu-proyecto.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:1234567890:web:abcdef123456"
         };
 
         let db = null;
         let isFirebaseConnected = false;
 
-        // Intentar inicializar Firebase y Autenticación Anónima
+        // Definición global del estado en memoria (inicialmente vacío, sincronizado desde Firebase)
+        window.projects = [];
+        window.generalStock = [];
+        window.activityLogs = [];
+
+        // Inicializar Firebase
         try {
-            const app = initializeApp(firebaseConfig);
-            db = getDatabase(app);
-            const auth = getAuth(app);
+            if (firebaseConfig.databaseURL && !firebaseConfig.databaseURL.includes("tu-proyecto")) {
+                const app = initializeApp(firebaseConfig);
+                db = getDatabase(app);
+                isFirebaseConnected = true;
+                
+                const badge = document.getElementById('db-status-badge');
+                if (badge) {
+                    badge.className = "flex items-center gap-1.5 text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-full font-medium";
+                    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Realtime Conectado</span>`;
+                }
 
-            // Iniciar sesión de manera anónima para habilitar el acceso general sin pedir login
-            signInAnonymously(auth)
-                .then(() => {
-                    isFirebaseConnected = true;
-                    const badge = document.getElementById('db-status-badge');
-                    if (badge) {
-                        badge.className = "flex items-center gap-1.5 text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-full font-medium";
-                        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Realtime Conectado</span>`;
+                // Escuchar cambios en tiempo real desde Firebase
+                const rootRef = ref(db, 'impetecHub');
+                onValue(rootRef, (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        window.projects = data.projects || [];
+                        window.generalStock = data.generalStock || [];
+                        window.activityLogs = data.activityLogs || [];
+                    } else {
+                        // Semilla de datos iniciales en Firebase si la base de datos está vacía
+                        window.projects = [
+                            {
+                                id: 'PRJ-101',
+                                name: 'CCTV & Alarmas - Bodega Industrial León',
+                                category: 'Seguridad Electrónica / CCTV',
+                                ingreso: 48500.00,
+                                includesIva: true,
+                                status: 'En Ejecución',
+                                dateCreated: new Date().toISOString().split('T')[0],
+                                payments: [
+                                    { id: 1, concept: 'Anticipo 50%', amount: 24250.00, date: new Date().toISOString().split('T')[0] }
+                                ],
+                                costs: [
+                                    { id: 1, type: 'Materiales', desc: 'Kit Dahua DVR 16Ch + 12 Cámaras IP', provider: 'SYSCOM', amount: 22400.00, date: new Date().toISOString().split('T')[0] },
+                                    { id: 2, type: 'Materiales', desc: 'Bobina Cable UTP Cat6', provider: 'Tecnosinergia', amount: 3800.00, date: new Date().toISOString().split('T')[0] },
+                                    { id: 3, type: 'Salario', desc: 'Pago a instaladores técnicos', provider: 'Nómina', amount: 4500.00, date: new Date().toISOString().split('T')[0] },
+                                    { id: 4, type: 'Gasolina', desc: 'Combustible traslado León - Silao', provider: 'Mobil', amount: 850.00, date: new Date().toISOString().split('T')[0] }
+                                ]
+                            },
+                            {
+                                id: 'PRJ-102',
+                                name: 'Mantenimiento Red Impresoras & Servidor',
+                                category: 'Soporte & Impresoras',
+                                ingreso: 12000.00,
+                                includesIva: false,
+                                status: 'Finalizado',
+                                dateCreated: new Date().toISOString().split('T')[0],
+                                payments: [
+                                    { id: 1, concept: 'Pago Total Liquidado', amount: 12000.00, date: new Date().toISOString().split('T')[0] }
+                                ],
+                                costs: [
+                                    { id: 1, type: 'Materiales', desc: 'Refacciones Toner & Fusor HP', provider: 'Impresoras Bajío', amount: 5200.00, date: new Date().toISOString().split('T')[0] }
+                                ]
+                            }
+                        ];
+                        window.generalStock = [
+                            { id: 501, desc: 'Caja Cinchos de plástico 30cm, pijas y taquetes 1/4', provider: 'Steren / Truper', category: 'Consumibles Generales', amount: 1450.00, date: new Date().toISOString().split('T')[0] },
+                            { id: 502, desc: 'Alcohol isopropílico y aire comprimido', provider: 'Ferrete', category: 'Limpieza / Taller', amount: 680.00, date: new Date().toISOString().split('T')[0] }
+                        ];
+                        window.activityLogs = [
+                            { id: 1, timestamp: new Date().toLocaleString('es-MX'), action: 'Sistema Iniciado', detail: 'Base de datos en tiempo real de Firebase inicializada.' }
+                        ];
+                        window.saveState();
                     }
-                    
-                    // Escuchar cambios en Realtime Database
-                    const rootRef = ref(db, 'impetecHub');
-                    onValue(rootRef, (snapshot) => {
-                        const data = snapshot.val();
-                        if (data) {
-                            if (data.projects) window.projects = data.projects;
-                            if (data.generalStock) window.generalStock = data.generalStock;
-                            if (data.activityLogs) window.activityLogs = data.activityLogs;
 
-                            localStorage.setItem('impetec_hub_projects', JSON.stringify(window.projects));
-                            localStorage.setItem('impetec_hub_stock', JSON.stringify(window.generalStock));
-                            localStorage.setItem('impetec_hub_logs', JSON.stringify(window.activityLogs));
-
-                            renderProjects();
-                            updateCharts();
-                        }
-                    });
-                })
-                .catch((err) => {
-                    console.error("Error al autenticar en Firebase:", err);
-                    updateConnectionBadgeWarning("Modo Local / Error Auth");
+                    window.renderProjects();
+                    window.updateCharts();
                 });
+
+            } else {
+                updateConnectionBadgeWarning("Configura firebaseConfig para conectar");
+            }
         } catch (err) {
             console.error("Error al conectar Firebase Realtime:", err);
-            updateConnectionBadgeWarning("Modo Offline / LocalStorage");
+            updateConnectionBadgeWarning("Error de conexión a Firebase");
         }
 
         function updateConnectionBadgeWarning(msg) {
@@ -680,68 +727,19 @@
             }
         }
 
-        // --- MANEJO DE DATOS LOCALES + SYNC NUBE ---
-        window.projects = JSON.parse(localStorage.getItem('impetec_hub_projects')) || [
-            {
-                id: 'PRJ-101',
-                name: 'CCTV & Alarmas - Bodega Industrial León',
-                category: 'Seguridad Electrónica / CCTV',
-                ingreso: 48500.00,
-                includesIva: true,
-                status: 'En Ejecución',
-                dateCreated: new Date().toISOString().split('T')[0],
-                payments: [
-                    { id: 1, concept: 'Anticipo 50%', amount: 24250.00, date: new Date().toISOString().split('T')[0] }
-                ],
-                costs: [
-                    { id: 1, type: 'Materiales', desc: 'Kit Dahua DVR 16Ch + 12 Cámaras IP', provider: 'SYSCOM', amount: 22400.00, date: new Date().toISOString().split('T')[0] },
-                    { id: 2, type: 'Materiales', desc: 'Bobina Cable UTP Cat6', provider: 'Tecnosinergia', amount: 3800.00, date: new Date().toISOString().split('T')[0] },
-                    { id: 3, type: 'Salario', desc: 'Pago a instaladores técnicos', provider: 'Nómina', amount: 4500.00, date: new Date().toISOString().split('T')[0] },
-                    { id: 4, type: 'Gasolina', desc: 'Combustible traslado León - Silao', provider: 'Mobil', amount: 850.00, date: new Date().toISOString().split('T')[0] }
-                ]
-            },
-            {
-                id: 'PRJ-102',
-                name: 'Mantenimiento Red Impresoras & Servidor',
-                category: 'Soporte & Impresoras',
-                ingreso: 12000.00,
-                includesIva: false,
-                status: 'Finalizado',
-                dateCreated: new Date().toISOString().split('T')[0],
-                payments: [
-                    { id: 1, concept: 'Pago Total Liquidado', amount: 12000.00, date: new Date().toISOString().split('T')[0] }
-                ],
-                costs: [
-                    { id: 1, type: 'Materiales', desc: 'Refacciones Toner & Fusor HP', provider: 'Impresoras Bajío', amount: 5200.00, date: new Date().toISOString().split('T')[0] }
-                ]
-            }
-        ];
-
-        window.generalStock = JSON.parse(localStorage.getItem('impetec_hub_stock')) || [
-            { id: 501, desc: 'Caja Cinchos de plástico 30cm, pijas y taquetes 1/4', provider: 'Steren / Truper', category: 'Consumibles Generales', amount: 1450.00, date: new Date().toISOString().split('T')[0] },
-            { id: 502, desc: 'Alcohol isopropílico y aire comprimido', provider: 'Ferrete', category: 'Limpieza / Taller', amount: 680.00, date: new Date().toISOString().split('T')[0] }
-        ];
-
-        window.activityLogs = JSON.parse(localStorage.getItem('impetec_hub_logs')) || [
-            { id: 1, timestamp: new Date().toLocaleString(), action: 'Sistema Iniciado', detail: 'Versión Enterprise v5.0 lista con sincronización Realtime.' }
-        ];
-
-        // Función global para sincronizar guardar
+        // --- FUNCIÓN ÚNICA DE GUARDADO DIRECTO A FIREBASE ---
         window.saveState = function() {
-            localStorage.setItem('impetec_hub_projects', JSON.stringify(window.projects));
-            localStorage.setItem('impetec_hub_stock', JSON.stringify(window.generalStock));
-            localStorage.setItem('impetec_hub_logs', JSON.stringify(window.activityLogs));
-
             if (isFirebaseConnected && db) {
                 set(ref(db, 'impetecHub'), {
                     projects: window.projects,
                     generalStock: window.generalStock,
                     activityLogs: window.activityLogs
-                }).catch(err => console.error("Error guardando en Firebase Realtime:", err));
+                }).catch(err => console.error("Error al guardar en Firebase Realtime Database:", err));
+            } else {
+                // Renderizado preventivo si no hay credenciales configuradas
+                window.renderProjects();
+                window.updateCharts();
             }
-
-            renderProjects();
-            updateCharts();
         };
 
         window.addLog = function(action, detail) {
@@ -765,8 +763,12 @@
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
             initCharts();
-            renderProjects();
         });
+
+        function filterProjectCosts(projectId, type) {
+            activeProjectTabs[projectId] = type;
+            renderProjects();
+        }
 
         function updateTaxCalculations() {
             const ingreso = parseFloat(document.getElementById('project-ingreso').value) || 0;
@@ -888,6 +890,7 @@
             if (stockIndex !== -1 && targetProject) {
                 const stockItem = window.generalStock[stockIndex];
 
+                if (!targetProject.costs) targetProject.costs = [];
                 targetProject.costs.push({
                     id: Date.now(),
                     type: 'Materiales',
@@ -1183,9 +1186,11 @@
                 const item = window.generalStock.find(s => s.id == itemId);
                 if (item) {
                     item.desc = desc; item.provider = provider; item.category = category; item.amount = amount;
+                    window.addLog('Stock Actualizado', `Insumo ${desc} actualizado`);
                 }
             } else {
                 window.generalStock.unshift({ id: Date.now(), desc, provider, category, amount, date: new Date().toISOString().split('T')[0] });
+                window.addLog('Nuevo Stock', `Agregado insumo ${desc} ($${amount})`);
             }
 
             closeStockModal();
@@ -1194,7 +1199,9 @@
 
         function deleteStockItem(id) {
             if (confirm("¿Eliminar este insumo del almacén?")) {
+                const item = window.generalStock.find(s => s.id === id);
                 window.generalStock = window.generalStock.filter(s => s.id !== id);
+                if (item) window.addLog('Stock Eliminado', `Eliminado insumo ${item.desc}`);
                 window.saveState();
             }
         }
@@ -1210,12 +1217,14 @@
 
             const project = window.projects.find(p => p.id === projectId);
             if (project) {
+                if (!project.costs) project.costs = [];
                 if (costId) {
                     const cost = project.costs.find(c => c.id == costId);
                     if (cost) { cost.type = type; cost.desc = desc; cost.provider = provider; cost.amount = amount; }
                 } else {
                     project.costs.push({ id: Date.now(), type, desc, provider, amount, date: new Date().toISOString().split('T')[0] });
                 }
+                window.addLog('Costo Registrado', `Registrado costo de $${amount} (${desc}) en ${project.id}`);
                 window.saveState();
             }
             closeCostModal();
@@ -1225,6 +1234,7 @@
             const project = window.projects.find(p => p.id === projectId);
             if (project) {
                 project.costs = project.costs.filter(c => c.id !== costId);
+                window.addLog('Costo Eliminado', `Eliminado costo de ${project.id}`);
                 window.saveState();
             }
         }
@@ -1232,6 +1242,7 @@
         function deleteProject(projectId) {
             if (confirm("¿Eliminar proyecto y registros asociados?")) {
                 window.projects = window.projects.filter(p => p.id !== projectId);
+                window.addLog('Proyecto Eliminado', `Eliminado proyecto ${projectId}`);
                 window.saveState();
             }
         }
@@ -1277,8 +1288,9 @@
                         window.projects = imported.projects;
                         window.generalStock = imported.generalStock || [];
                         window.activityLogs = imported.activityLogs || [];
+                        window.addLog('Restauración', 'Datos restaurados desde respaldo JSON');
                         window.saveState();
-                        alert("Restauración completada.");
+                        alert("Restauración completada en Realtime.");
                     }
                 } catch (err) { alert("Archivo JSON no válido."); }
             };
@@ -1538,6 +1550,25 @@
                                 </span>
                                 <button onclick="openCostModal('${project.id}', null, '${currentActiveTab !== 'Todos' ? currentActiveTab : 'Materiales'}')" class="text-xs bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-medium px-2.5 py-1 rounded-md border border-amber-500/20 flex items-center gap-1 no-print">
                                     <i data-lucide="plus" class="w-3.5 h-3.5"></i> + Registrar Gasto
+                                </button>
+                            </div>
+
+                            <!-- Pestañas de filtrado de costos del proyecto -->
+                            <div class="flex overflow-x-auto border-b border-slate-700/80 gap-1 text-[11px] no-print pb-1">
+                                <button onclick="filterProjectCosts('${project.id}', 'Todos')" class="px-2.5 py-1 rounded-t font-medium transition ${currentActiveTab === 'Todos' ? 'bg-indigo-600/30 text-indigo-300 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-200'}">
+                                    Todos
+                                </button>
+                                <button onclick="filterProjectCosts('${project.id}', 'Materiales')" class="px-2.5 py-1 rounded-t font-medium transition ${currentActiveTab === 'Materiales' ? 'bg-indigo-600/30 text-indigo-300 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-200'}">
+                                    Materiales
+                                </button>
+                                <button onclick="filterProjectCosts('${project.id}', 'Salario')" class="px-2.5 py-1 rounded-t font-medium transition ${currentActiveTab === 'Salario' ? 'bg-indigo-600/30 text-indigo-300 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-200'}">
+                                    Salario
+                                </button>
+                                <button onclick="filterProjectCosts('${project.id}', 'Gasolina')" class="px-2.5 py-1 rounded-t font-medium transition ${currentActiveTab === 'Gasolina' ? 'bg-indigo-600/30 text-indigo-300 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-200'}">
+                                    Gasolina
+                                </button>
+                                <button onclick="filterProjectCosts('${project.id}', 'Insumos Específicos')" class="px-2.5 py-1 rounded-t font-medium transition ${currentActiveTab === 'Insumos Específicos' ? 'bg-indigo-600/30 text-indigo-300 border-b-2 border-indigo-500' : 'text-slate-400 hover:text-slate-200'}">
+                                    Extra Específicos
                                 </button>
                             </div>
 
