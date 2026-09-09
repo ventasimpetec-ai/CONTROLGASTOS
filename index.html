@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImpetecHub Pro - Enterprise Control (Realtime)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- pdf.js CDN for PDF Parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- Chart.js para Reportes Gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+
+        @media print {
+            @page { size: A4 portrait; margin: 8mm; }
+            header, form, button, .no-print, #alerts-banner, .chart-container { display: none !important; }
+            body { background-color: white !important; color: #0f172a !important; font-size: 11px !important; }
+            *, div, main, section, table, details { overflow: visible !important; max-height: none !important; height: auto !important; }
+            details { display: block !important; }
+            details summary { pointer-events: none !important; }
+            details[open] summary ~ * { display: block !important; }
+            section, #projects-container > details, tr { break-inside: avoid !important; page-break-inside: avoid !important; margin-bottom: 12px !important; }
+            .bg-slate-800, .bg-slate-900, .bg-slate-950 { background-color: #f8fafc !important; border: 1px solid #cbd5e1 !important; color: #0f172a !important; box-shadow: none !important; }
+            span, h1, h2, h3, p, td, th { color: #0f172a !important; text-shadow: none !important; }
+            .text-slate-400, .text-slate-500 { color: #475569 !important; }
+            .text-indigo-400, .text-cyan-400, .text-amber-400, .text-emerald-400 { color: #1e293b !important; font-weight: bold !important; }
+            table { width: 100% !important; border-collapse: collapse !important; }
+            th, td { padding: 6px 8px !important; border-bottom: 1px solid #e2e8f0 !important; }
+        }
+
+        details summary::-webkit-details-marker { display: none; }
+        details[open] .chevron-icon { transform: rotate(180deg); }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+
+    <!-- Header / Navbar -->
+    <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-indigo-600 rounded-lg">
+                    <i data-lucide="layout-dashboard" class="w-6 h-6 text-white"></i>
+                </div>
+                <span class="font-bold text-xl tracking-wide bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">ImpetecHub Pro</span>
+                <span class="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded-full border border-slate-600">v5.0 Realtime</span>
+                <!-- Indicator de estado de conexión Firebase -->
+                <div id="db-status-badge" class="flex items-center gap-1.5 text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2.5 py-1 rounded-full font-medium">
+                    <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                    <span>Conectando...</span>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-2 no-print">
+                <button onclick="openHistoryModal()" title="Historial Global de Movimientos" class="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/20 text-purple-300 border border-purple-500/30 rounded-lg text-xs hover:bg-purple-600/30 transition">
+                    <i data-lucide="history" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Bitácora Global</span>
+                </button>
+                <button onclick="exportToCSV()" title="Exportar a Excel/CSV" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 rounded-lg text-xs hover:bg-emerald-600/30 transition">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Exportar CSV</span>
+                </button>
+                <button onclick="exportJSONData()" title="Respaldar JSON" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 text-slate-200 border border-slate-600 rounded-lg text-xs hover:bg-slate-600 transition">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Backup</span>
+                </button>
+                <label title="Importar JSON" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 text-slate-200 border border-slate-600 rounded-lg text-xs hover:bg-slate-600 transition cursor-pointer">
+                    <i data-lucide="upload" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Restaurar</span>
+                    <input type="file" id="import-file" accept=".json" onchange="importJSONData(this)" class="hidden">
+                </label>
+                <button onclick="window.print()" title="Imprimir Reporte" class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs hover:bg-indigo-500 transition">
+                    <i data-lucide="printer" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Imprimir / PDF</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- Executive KPI Overview Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <!-- Total Cotizado -->
+            <div class="bg-slate-800/90 border border-slate-700/80 rounded-xl p-4 shadow-lg relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Cotizado</span>
+                    <div class="p-1.5 bg-blue-500/10 text-blue-400 rounded-lg">
+                        <i data-lucide="file-check-2" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span id="kpi-ingresos" class="text-xl font-bold text-slate-50">$0.00</span>
+                </div>
+                <p class="text-[10px] text-slate-400 mt-1">Suma total proyectada</p>
+            </div>
+
+            <!-- Cobrado (Anticipos) -->
+            <div class="bg-slate-800/90 border border-slate-700/80 rounded-xl p-4 shadow-lg relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Cobrado (Abonos)</span>
+                    <div class="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg">
+                        <i data-lucide="wallet" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span id="kpi-cobrado" class="text-xl font-bold text-emerald-400">$0.00</span>
+                </div>
+                <p id="kpi-por-cobrar" class="text-[10px] text-amber-400 mt-1">Pendiente: $0.00</p>
+            </div>
+
+            <!-- Costos Directos Proyectos -->
+            <div class="bg-slate-800/90 border border-slate-700/80 rounded-xl p-4 shadow-lg relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Gastos Proyectos</span>
+                    <div class="p-1.5 bg-amber-500/10 text-amber-400 rounded-lg">
+                        <i data-lucide="shopping-cart" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span id="kpi-egresos" class="text-xl font-bold text-slate-50">$0.00</span>
+                </div>
+                <p class="text-[10px] text-slate-400 mt-1">Materiales, nómina, viáticos</p>
+            </div>
+
+            <!-- Stock Global Almacén -->
+            <div class="bg-slate-800/90 border border-slate-700/80 rounded-xl p-4 shadow-lg relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Stock Almacén</span>
+                    <div class="p-1.5 bg-cyan-500/10 text-cyan-400 rounded-lg">
+                        <i data-lucide="boxes" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span id="kpi-stock-total" class="text-xl font-bold text-cyan-300">$0.00</span>
+                </div>
+                <p class="text-[10px] text-slate-400 mt-1">Insumos no asignables</p>
+            </div>
+
+            <!-- Utilidad Neta Real -->
+            <div class="bg-slate-800/90 border border-slate-700/80 rounded-xl p-4 shadow-lg relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Utilidad Neta</span>
+                    <div class="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg">
+                        <i data-lucide="trending-up" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span id="kpi-utilidad" class="text-xl font-bold text-emerald-400">$0.00</span>
+                </div>
+                <p id="kpi-margen" class="text-[10px] text-emerald-400 font-medium mt-1">0.0% Margen</p>
+            </div>
+        </div>
+
+        <!-- Banner de Alertas Preventivas -->
+        <div id="alerts-banner" class="hidden bg-rose-900/40 border border-rose-500/50 rounded-xl p-4 text-rose-200 text-xs flex items-center justify-between shadow-lg animate-pulse">
+            <div class="flex items-center gap-3">
+                <i data-lucide="alert-triangle" class="w-6 h-6 text-rose-400 flex-shrink-0"></i>
+                <div>
+                    <span class="font-bold text-rose-300">¡Alertas Financieras y de Proyectos!</span>
+                    <p id="alerts-banner-text" class="text-[11px] text-rose-200/80 mt-0.5"></p>
+                </div>
+            </div>
+            <button onclick="document.getElementById('alerts-banner').classList.add('hidden')" class="text-rose-400 hover:text-rose-200">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <!-- Panel de Reportes Gráficos (Chart.js) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 chart-container no-print">
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-xl">
+                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <i data-lucide="pie-chart" class="w-4 h-4 text-indigo-400"></i>
+                    Distribución Global de Costos Directos
+                </h3>
+                <div class="h-48">
+                    <canvas id="chart-costos-distribucion"></canvas>
+                </div>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-xl">
+                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <i data-lucide="bar-chart-2" class="w-4 h-4 text-cyan-400"></i>
+                    Estatus Financiero del Portafolio
+                </h3>
+                <div class="h-48">
+                    <canvas id="chart-portafolio-estatus"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN: Módulo de Insumos Generales, Almacén y Stock Global -->
+        <section class="bg-slate-800 border border-cyan-500/30 rounded-xl p-6 shadow-xl space-y-4">
+            <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-700 pb-4 gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                        <i data-lucide="boxes" class="w-5 h-5 text-cyan-400"></i>
+                        Insumos Generales, Almacén y Compras de Stock
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">
+                        Registra consumibles globales (cinchos, taquetes, bobinas de stock, herramientas). Puedes **traspasarlos a un proyecto** cuando se consuman.
+                    </p>
+                </div>
+                <button onclick="openStockModal()" class="no-print bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium px-4 py-2 rounded-lg flex items-center justify-center gap-1.5 transition shadow-lg shadow-cyan-600/20">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    Añadir Compra de Stock
+                </button>
+            </div>
+
+            <!-- Tabla de Insumos Generales / Stock -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-700">
+                        <tr>
+                            <th class="py-3 px-4">Fecha</th>
+                            <th class="py-3 px-4">Descripción del Insumo / Material</th>
+                            <th class="py-3 px-4">Proveedor / Local</th>
+                            <th class="py-3 px-4">Categoría</th>
+                            <th class="py-3 px-4 text-right">Monto</th>
+                            <th class="py-3 px-4 text-center no-print">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stock-table-body" class="divide-y divide-slate-700/50">
+                        <!-- Filas dinámicas generadas desde JS -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="stock-empty-msg" class="text-center text-xs text-slate-500 py-4 hidden">
+                No hay insumos generales registrados en el almacén global.
+            </div>
+        </section>
+
+        <!-- Form section & Project Management Panel -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Column Izquierda: Formulario Proyecto & Simulador -->
+            <div class="lg:col-span-1 space-y-6 no-print">
+                
+                <!-- Formulario Proyecto -->
+                <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-xl space-y-6">
+                    <div class="border-b border-slate-700 pb-4 flex justify-between items-center">
+                        <div>
+                            <h2 id="form-title" class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                                <i data-lucide="plus-circle" class="w-5 h-5 text-indigo-400"></i>
+                                Nuevo Registro de Proyecto
+                            </h2>
+                            <p class="text-xs text-slate-400 mt-1">Crea un proyecto manual o sube cotización PDF para autodetectar total.</p>
+                        </div>
+                        <button id="cancel-edit-btn" onclick="resetProjectForm()" class="hidden text-xs text-rose-400 underline hover:text-rose-300">
+                            Cancelar edición
+                        </button>
+                    </div>
+
+                    <form id="project-form" onsubmit="handleProjectSubmit(event)" class="space-y-4">
+                        <input type="hidden" id="editing-project-id" value="">
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Nombre del Proyecto / Cliente</label>
+                            <input type="text" id="project-name" required placeholder="Ej. Instalación CCTV Bodega Norte" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Categoría de Servicio</label>
+                            <select id="project-category" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition">
+                                <option value="Seguridad Electrónica / CCTV">Seguridad Electrónica / CCTV</option>
+                                <option value="Control de Acceso / Biométricos">Control de Acceso / Biométricos</option>
+                                <option value="Cercas Eléctricas">Cercas Eléctricas</option>
+                                <option value="Soporte & Impresoras">Soporte & Impresoras</option>
+                                <option value="Infraestructura Redes">Infraestructura Redes</option>
+                            </select>
+                        </div>
+
+                        <!-- PDF Upload Section -->
+                        <div class="border-2 border-dashed border-slate-700 hover:border-indigo-500 transition rounded-xl p-4 text-center bg-slate-900/50">
+                            <i data-lucide="file-up" class="w-8 h-8 mx-auto text-indigo-400 mb-2"></i>
+                            <span class="block text-xs font-medium text-slate-200">Subir PDF de Cotización (Ingreso)</span>
+                            <span class="block text-[10px] text-slate-400 mt-1">Detecta montos automáticamente ($...)</span>
+                            <input type="file" id="cotizacion-pdf" accept="application/pdf" onchange="processPDFCotizacion(this)" class="hidden">
+                            <button type="button" onclick="document.getElementById('cotizacion-pdf').click()" class="mt-3 bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded-md text-indigo-300 border border-slate-600 transition">
+                                Seleccionar PDF
+                            </button>
+                            <div id="pdf-status" class="text-[11px] text-indigo-400 font-medium mt-2 hidden"></div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Ingreso Cotizado ($)</label>
+                                <input type="number" step="0.01" id="project-ingreso" oninput="updateTaxCalculations()" required placeholder="0.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1">Estatus</label>
+                                <select id="project-status" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition">
+                                    <option value="Cotizado">Cotizado</option>
+                                    <option value="En Ejecución">En Ejecución</option>
+                                    <option value="Finalizado">Finalizado</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Configuración de IVA / Fiscal -->
+                        <div class="p-3 bg-slate-900/80 border border-slate-700/80 rounded-lg space-y-2">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="project-include-iva" onchange="updateTaxCalculations()" class="rounded bg-slate-800 border-slate-700 text-indigo-600 focus:ring-indigo-500">
+                                <span class="text-xs font-medium text-slate-300">Aplicar IVA +16% a esta cotización</span>
+                            </label>
+                            <div id="tax-summary-box" class="hidden text-[11px] text-slate-400 border-t border-slate-800 pt-2 space-y-1">
+                                <div class="flex justify-between"><span>Subtotal:</span><span id="tax-subtotal">$0.00</span></div>
+                                <div class="flex justify-between"><span>IVA (16%):</span><span id="tax-iva" class="text-indigo-400">$0.00</span></div>
+                                <div class="flex justify-between font-bold text-slate-200"><span>Total con IVA:</span><span id="tax-total" class="text-emerald-400">$0.00</span></div>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="submit-project-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 px-4 rounded-lg text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20">
+                            <i data-lucide="plus" class="w-4 h-4"></i> <span id="submit-btn-text">Crear Proyecto</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Simulador de Margen de Cotización -->
+                <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 space-y-4 shadow-xl">
+                    <div class="flex items-center gap-2 border-b border-slate-700 pb-3">
+                        <i data-lucide="calculator" class="w-5 h-5 text-emerald-400"></i>
+                        <h3 class="font-bold text-sm text-slate-100">Simulador de Margen de Cotización</h3>
+                    </div>
+                    <div class="space-y-3 text-xs">
+                        <div>
+                            <label class="block text-slate-300 mb-1">Costo Estimado Materiales ($)</label>
+                            <input type="number" id="sim-costo" oninput="calculateSimulation()" placeholder="Ej. 10000" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100 focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-slate-300 mb-1">Margen Deseado (%)</label>
+                            <input type="number" id="sim-margen" value="35" oninput="calculateSimulation()" placeholder="Ej. 35" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100 focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div class="p-3 bg-slate-900/90 rounded-lg border border-slate-700 space-y-1">
+                            <div class="flex justify-between text-slate-400">
+                                <span>Utilidad Estimada:</span>
+                                <span id="sim-res-utilidad" class="font-semibold text-emerald-400">$0.00</span>
+                            </div>
+                            <div class="flex justify-between font-bold text-slate-100 text-sm pt-1 border-t border-slate-800">
+                                <span>Precio Venta Sugerido:</span>
+                                <span id="sim-res-total" class="text-indigo-400">$0.00</span>
+                            </div>
+                        </div>
+                        <button type="button" onclick="applySimulatedToForm()" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 py-1.5 rounded-lg text-xs font-medium transition flex items-center justify-center gap-1">
+                            <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i> Usar Monto en Proyecto
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Column Derecha: Lista de Proyectos Retráctiles -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Search & Filters -->
+                <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-3 no-print">
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div class="relative w-full sm:w-64">
+                            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+                            <input type="text" id="search-input" onkeyup="renderProjects()" placeholder="Buscar proyecto..." class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                            <span class="text-xs text-slate-400">Estatus:</span>
+                            <select id="filter-status" onchange="renderProjects()" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none">
+                                <option value="Todos">Todos los Estatus</option>
+                                <option value="Con Pérdida">Solo con Pérdida / Sobrecosto</option>
+                                <option value="Pendiente Cobro">Con Saldo Pendiente de Cobro</option>
+                                <option value="En Ejecución">En Ejecución</option>
+                                <option value="Finalizado">Finalizados</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-700/60 text-xs">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-slate-400">Desde:</span>
+                            <input type="date" id="filter-date-from" onchange="renderProjects()" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200">
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-slate-400">Hasta:</span>
+                            <input type="date" id="filter-date-to" onchange="renderProjects()" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200">
+                        </div>
+                        <div class="flex items-center gap-1.5 ml-auto">
+                            <span class="text-slate-400">Categoría:</span>
+                            <select id="filter-category" onchange="renderProjects()" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200">
+                                <option value="Todas">Todas las Categorías</option>
+                                <option value="Seguridad Electrónica / CCTV">Seguridad Electrónica / CCTV</option>
+                                <option value="Control de Acceso / Biométricos">Control de Acceso / Biométricos</option>
+                                <option value="Cercas Eléctricas">Cercas Eléctricas</option>
+                                <option value="Soporte & Impresoras">Soporte & Impresoras</option>
+                                <option value="Infraestructura Redes">Infraestructura Redes</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de Proyectos Plegables -->
+                <div id="projects-container" class="space-y-3">
+                    <!-- Dynamic project cards inserted via JS -->
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Modal: Registrar Costos de Proyecto -->
+    <div id="cost-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-4 z-50 no-print">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 id="cost-modal-title" class="font-bold text-slate-100 flex items-center gap-2">
+                    <i data-lucide="receipt" class="w-5 h-5 text-amber-400"></i>
+                    Agregar Registro de Costo Directo
+                </h3>
+                <button onclick="closeCostModal()" class="text-slate-400 hover:text-slate-200">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="flex overflow-x-auto border-b border-slate-700 no-scrollbar gap-1 text-xs">
+                <button type="button" onclick="switchCostTab('Materiales')" id="tab-Materiales" class="cost-tab-btn px-3 py-2 font-medium border-b-2 border-indigo-500 text-indigo-400 flex items-center gap-1.5 whitespace-nowrap">
+                    <i data-lucide="package" class="w-3.5 h-3.5"></i> Materiales/OC
+                </button>
+                <button type="button" onclick="switchCostTab('Salario')" id="tab-Salario" class="cost-tab-btn px-3 py-2 font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center gap-1.5 whitespace-nowrap">
+                    <i data-lucide="users" class="w-3.5 h-3.5"></i> Salario / Mano Obra
+                </button>
+                <button type="button" onclick="switchCostTab('Gasolina')" id="tab-Gasolina" class="cost-tab-btn px-3 py-2 font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center gap-1.5 whitespace-nowrap">
+                    <i data-lucide="fuel" class="w-3.5 h-3.5"></i> Gasolina / Viáticos
+                </button>
+                <button type="button" onclick="switchCostTab('Insumos Específicos')" id="tab-Insumos Específicos" class="cost-tab-btn px-3 py-2 font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center gap-1.5 whitespace-nowrap">
+                    <i data-lucide="wrench" class="w-3.5 h-3.5"></i> Extra Específicos
+                </button>
+            </div>
+
+            <form onsubmit="handleCostSubmit(event)" class="space-y-4">
+                <input type="hidden" id="modal-project-id">
+                <input type="hidden" id="modal-cost-id">
+                <input type="hidden" id="modal-cost-type" value="Materiales">
+                
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Descripción del Costo</label>
+                    <input type="text" id="cost-description" required placeholder="Ej. DVR Dahua 8 Ch + 4 Cámaras" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Proveedor / Folio de Factura</label>
+                    <input type="text" id="cost-provider" placeholder="Ej. SYSCOM - Factura #A-9482" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Monto ($)</label>
+                    <input type="number" step="0.01" id="cost-amount" required placeholder="0.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
+                </div>
+
+                <div class="pt-2 flex justify-end space-x-3">
+                    <button type="button" onclick="closeCostModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-medium text-slate-200">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 rounded-lg text-xs font-medium text-white flex items-center gap-1">
+                        <i data-lucide="check" class="w-4 h-4"></i> Guardar Costo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Registrar Abonados / Anticipos de Clientes -->
+    <div id="payment-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-4 z-50 no-print">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 space-y-5 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="font-bold text-slate-100 flex items-center gap-2">
+                    <i data-lucide="dollar-sign" class="w-5 h-5 text-emerald-400"></i>
+                    Registrar Anticipo / Pago de Cliente
+                </h3>
+                <button onclick="closePaymentModal()" class="text-slate-400 hover:text-slate-200">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form onsubmit="handlePaymentSubmit(event)" class="space-y-4">
+                <input type="hidden" id="modal-payment-project-id">
+                
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Concepto del Pago</label>
+                    <input type="text" id="payment-concept" required placeholder="Ej. Anticipo 50% de inicio de obra" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Monto Abonavo ($)</label>
+                    <input type="number" step="0.01" id="payment-amount" required placeholder="0.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                </div>
+
+                <div class="pt-2 flex justify-end space-x-3">
+                    <button type="button" onclick="closePaymentModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-medium text-slate-200">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-xs font-medium text-white flex items-center gap-1">
+                        <i data-lucide="check" class="w-4 h-4"></i> Guardar Abono
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Registrar Insumos Generales / Stock Almacén Global -->
+    <div id="stock-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-4 z-50 no-print">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 id="stock-modal-title" class="font-bold text-slate-100 flex items-center gap-2">
+                    <i data-lucide="boxes" class="w-5 h-5 text-cyan-400"></i>
+                    Registrar Insumo General / Stock Almacén
+                </h3>
+                <button onclick="closeStockModal()" class="text-slate-400 hover:text-slate-200">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form onsubmit="handleStockSubmit(event)" class="space-y-4">
+                <input type="hidden" id="stock-item-id">
+                
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Descripción del Insumo o Material</label>
+                    <input type="text" id="stock-description" required placeholder="Ej. Paquete de cinchos de plástico 30cm + taquetes" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-cyan-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Proveedor / Local</label>
+                        <input type="text" id="stock-provider" placeholder="Ej. Truper / Steren" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Categoría Stock</label>
+                        <select id="stock-category" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-cyan-500">
+                            <option value="Consumibles Generales">Consumibles Generales</option>
+                            <option value="Herramientas & Equipo">Herramientas & Equipo</option>
+                            <option value="Bobinas / Cableado Stock">Bobinas / Cableado Stock</option>
+                            <option value="Limpieza / Taller">Limpieza / Taller</option>
+                            <option value="Oficina & Papelería">Oficina & Papelería</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Monto de Compra ($)</label>
+                    <input type="number" step="0.01" id="stock-amount" required placeholder="0.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-cyan-500">
+                </div>
+
+                <div class="pt-2 flex justify-end space-x-3">
+                    <button type="button" onclick="closeStockModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-medium text-slate-200">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-xs font-medium text-white flex items-center gap-1">
+                        <i data-lucide="check" class="w-4 h-4"></i> Guardar Stock
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Traspaso de Stock a Proyecto -->
+    <div id="transfer-stock-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-4 z-50 no-print">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="font-bold text-slate-100 flex items-center gap-2 text-sm">
+                    <i data-lucide="arrow-right-left" class="w-4 h-4 text-cyan-400"></i>
+                    Traspasar Insumo de Almacén a Proyecto
+                </h3>
+                <button onclick="closeTransferModal()" class="text-slate-400 hover:text-slate-200">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <form onsubmit="handleTransferSubmit(event)" class="space-y-4 text-xs">
+                <input type="hidden" id="transfer-stock-id">
+
+                <div>
+                    <span class="block text-slate-400 mb-1">Insumo Seleccionado:</span>
+                    <span id="transfer-stock-desc" class="font-bold text-slate-100 bg-slate-900 p-2 rounded block border border-slate-700"></span>
+                </div>
+
+                <div>
+                    <label class="block font-medium text-slate-300 mb-1">Selecciona el Proyecto Destino:</label>
+                    <select id="transfer-project-target" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+
+                <div class="pt-2 flex justify-end space-x-2">
+                    <button type="button" onclick="closeTransferModal()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-slate-200">Cancelar</button>
+                    <button type="submit" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 rounded font-medium text-white">Confirmar Traspaso</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Bitácora / Historial de Movimientos Globales -->
+    <div id="history-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-4 z-50 no-print">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-2xl w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="font-bold text-slate-100 flex items-center gap-2">
+                    <i data-lucide="history" class="w-5 h-5 text-purple-400"></i>
+                    Bitácora e Historial de Movimientos
+                </h3>
+                <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-slate-200">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="max-h-80 overflow-y-auto space-y-2 pr-1" id="history-logs-container">
+                <!-- Se puebla dinámicamente -->
+            </div>
+
+            <div class="pt-2 flex justify-end">
+                <button onclick="closeHistoryModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-medium text-slate-200">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Realtime Database SDK Modules -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+        // CONFIGURACIÓN DE TU PROYECTO FIREBASE
+        // Reemplaza los siguientes valores con las credenciales de tu consola de Firebase
+        const firebaseConfig = {
+            apiKey: "TU_API_KEY_AQUI",
+            authDomain: "tu-proyecto.firebaseapp.com",
+            databaseURL: "https://tu-proyecto-default-rtdb.firebaseio.com",
+            projectId: "tu-proyecto",
+            storageBucket: "tu-proyecto.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:1234567890:web:abcdef123456"
+        };
+
+        let db = null;
+        let isFirebaseConnected = false;
+
+        // Intentar inicializar Firebase
+        try {
+            if (firebaseConfig.databaseURL && !firebaseConfig.databaseURL.includes("tu-proyecto")) {
+                const app = initializeApp(firebaseConfig);
+                db = getDatabase(app);
+                isFirebaseConnected = true;
+                
+                const badge = document.getElementById('db-status-badge');
+                if (badge) {
+                    badge.className = "flex items-center gap-1.5 text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-full font-medium";
+                    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Realtime Conectado</span>`;
+                }
+            } else {
+                updateConnectionBadgeWarning("Modo Local / Demo (Sin credenciales)");
+            }
+        } catch (err) {
+            console.error("Error al conectar Firebase Realtime:", err);
+            updateConnectionBadgeWarning("Modo Offline / LocalStorage");
+        }
+
+        function updateConnectionBadgeWarning(msg) {
+            const badge = document.getElementById('db-status-badge');
+            if (badge) {
+                badge.className = "flex items-center gap-1.5 text-[10px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2.5 py-1 rounded-full font-medium";
+                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-indigo-400"></span><span>${msg}</span>`;
+            }
+        }
+
+        // --- MANEJO DE DATOS LOCALES + SYNC NUBE ---
+        window.projects = JSON.parse(localStorage.getItem('impetec_hub_projects')) || [
+            {
+                id: 'PRJ-101',
+                name: 'CCTV & Alarmas - Bodega Industrial León',
+                category: 'Seguridad Electrónica / CCTV',
+                ingreso: 48500.00,
+                includesIva: true,
+                status: 'En Ejecución',
+                dateCreated: new Date().toISOString().split('T')[0],
+                payments: [
+                    { id: 1, concept: 'Anticipo 50%', amount: 24250.00, date: new Date().toISOString().split('T')[0] }
+                ],
+                costs: [
+                    { id: 1, type: 'Materiales', desc: 'Kit Dahua DVR 16Ch + 12 Cámaras IP', provider: 'SYSCOM', amount: 22400.00, date: new Date().toISOString().split('T')[0] },
+                    { id: 2, type: 'Materiales', desc: 'Bobina Cable UTP Cat6', provider: 'Tecnosinergia', amount: 3800.00, date: new Date().toISOString().split('T')[0] },
+                    { id: 3, type: 'Salario', desc: 'Pago a instaladores técnicos', provider: 'Nómina', amount: 4500.00, date: new Date().toISOString().split('T')[0] },
+                    { id: 4, type: 'Gasolina', desc: 'Combustible traslado León - Silao', provider: 'Mobil', amount: 850.00, date: new Date().toISOString().split('T')[0] }
+                ]
+            },
+            {
+                id: 'PRJ-102',
+                name: 'Mantenimiento Red Impresoras & Servidor',
+                category: 'Soporte & Impresoras',
+                ingreso: 12000.00,
+                includesIva: false,
+                status: 'Finalizado',
+                dateCreated: new Date().toISOString().split('T')[0],
+                payments: [
+                    { id: 1, concept: 'Pago Total Liquidado', amount: 12000.00, date: new Date().toISOString().split('T')[0] }
+                ],
+                costs: [
+                    { id: 1, type: 'Materiales', desc: 'Refacciones Toner & Fusor HP', provider: 'Impresoras Bajío', amount: 5200.00, date: new Date().toISOString().split('T')[0] }
+                ]
+            }
+        ];
+
+        window.generalStock = JSON.parse(localStorage.getItem('impetec_hub_stock')) || [
+            { id: 501, desc: 'Caja Cinchos de plástico 30cm, pijas y taquetes 1/4', provider: 'Steren / Truper', category: 'Consumibles Generales', amount: 1450.00, date: new Date().toISOString().split('T')[0] },
+            { id: 502, desc: 'Alcohol isopropílico y aire comprimido', provider: 'Ferrete', category: 'Limpieza / Taller', amount: 680.00, date: new Date().toISOString().split('T')[0] }
+        ];
+
+        window.activityLogs = JSON.parse(localStorage.getItem('impetec_hub_logs')) || [
+            { id: 1, timestamp: new Date().toLocaleString(), action: 'Sistema Iniciado', detail: 'Versión Enterprise v5.0 lista con sincronización Realtime.' }
+        ];
+
+        // Escuchar cambios en Realtime Database si está configurado
+        if (isFirebaseConnected && db) {
+            const rootRef = ref(db, 'impetecHub');
+            onValue(rootRef, (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    if (data.projects) window.projects = data.projects;
+                    if (data.generalStock) window.generalStock = data.generalStock;
+                    if (data.activityLogs) window.activityLogs = data.activityLogs;
+
+                    localStorage.setItem('impetec_hub_projects', JSON.stringify(window.projects));
+                    localStorage.setItem('impetec_hub_stock', JSON.stringify(window.generalStock));
+                    localStorage.setItem('impetec_hub_logs', JSON.stringify(window.activityLogs));
+
+                    renderProjects();
+                    updateCharts();
+                }
+            });
+        }
+
+        // Función global para sincronizar guardar
+        window.saveState = function() {
+            localStorage.setItem('impetec_hub_projects', JSON.stringify(window.projects));
+            localStorage.setItem('impetec_hub_stock', JSON.stringify(window.generalStock));
+            localStorage.setItem('impetec_hub_logs', JSON.stringify(window.activityLogs));
+
+            if (isFirebaseConnected && db) {
+                set(ref(db, 'impetecHub'), {
+                    projects: window.projects,
+                    generalStock: window.generalStock,
+                    activityLogs: window.activityLogs
+                }).catch(err => console.error("Error guardando en Firebase Realtime:", err));
+            }
+
+            renderProjects();
+            updateCharts();
+        };
+
+        window.addLog = function(action, detail) {
+            window.activityLogs.unshift({ id: Date.now(), timestamp: new Date().toLocaleString('es-MX'), action, detail });
+        };
+    </script>
+
+    <!-- JavaScript Principal del HUB -->
+    <script>
+        const costTypeConfigs = {
+            'Materiales': { icon: 'package', colorClass: 'text-amber-400 bg-amber-500/10' },
+            'Salario': { icon: 'users', colorClass: 'text-blue-400 bg-blue-500/10' },
+            'Gasolina': { icon: 'fuel', colorClass: 'text-rose-400 bg-rose-500/10' },
+            'Insumos Específicos': { icon: 'wrench', colorClass: 'text-purple-400 bg-purple-500/10' }
+        };
+
+        let activeProjectTabs = {};
+        let chartCostos = null;
+        let chartPortafolio = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            initCharts();
+            renderProjects();
+        });
+
+        function updateTaxCalculations() {
+            const ingreso = parseFloat(document.getElementById('project-ingreso').value) || 0;
+            const incIva = document.getElementById('project-include-iva').checked;
+            const box = document.getElementById('tax-summary-box');
+
+            if (incIva && ingreso > 0) {
+                box.classList.remove('hidden');
+                const subtotal = ingreso;
+                const iva = subtotal * 0.16;
+                const total = subtotal + iva;
+
+                document.getElementById('tax-subtotal').innerText = `$${subtotal.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+                document.getElementById('tax-iva').innerText = `$${iva.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+                document.getElementById('tax-total').innerText = `$${total.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+            } else {
+                box.classList.add('hidden');
+            }
+        }
+
+        function openPaymentModal(projectId) {
+            document.getElementById('modal-payment-project-id').value = projectId;
+            document.getElementById('payment-concept').value = '';
+            document.getElementById('payment-amount').value = '';
+            document.getElementById('payment-modal').classList.remove('hidden');
+            document.getElementById('payment-modal').classList.add('flex');
+            lucide.createIcons();
+        }
+
+        function closePaymentModal() {
+            document.getElementById('payment-modal').classList.add('hidden');
+            document.getElementById('payment-modal').classList.remove('flex');
+        }
+
+        function handlePaymentSubmit(e) {
+            e.preventDefault();
+            const projectId = document.getElementById('modal-payment-project-id').value;
+            const concept = document.getElementById('payment-concept').value;
+            const amount = parseFloat(document.getElementById('payment-amount').value) || 0;
+
+            const project = window.projects.find(p => p.id === projectId);
+            if (project) {
+                if (!project.payments) project.payments = [];
+                project.payments.push({
+                    id: Date.now(),
+                    concept,
+                    amount,
+                    date: new Date().toISOString().split('T')[0]
+                });
+                window.addLog('Abono Cliente', `Registrado abono de $${amount} para ${project.id} (${concept})`);
+                window.saveState();
+            }
+            closePaymentModal();
+        }
+
+        function deletePayment(projectId, paymentId) {
+            const project = window.projects.find(p => p.id === projectId);
+            if (project && project.payments) {
+                project.payments = project.payments.filter(p => p.id !== paymentId);
+                window.addLog('Abono Eliminado', `Eliminado registro de pago de ${project.id}`);
+                window.saveState();
+            }
+        }
+
+        function duplicateProject(projectId) {
+            const project = window.projects.find(p => p.id === projectId);
+            if (!project) return;
+
+            const newId = 'PRJ-' + Math.floor(100 + Math.random() * 900);
+            const duplicated = {
+                ...JSON.parse(JSON.stringify(project)),
+                id: newId,
+                name: `${project.name} (Copia)`,
+                status: 'Cotizado',
+                dateCreated: new Date().toISOString().split('T')[0],
+                payments: []
+            };
+
+            window.projects.unshift(duplicated);
+            window.addLog('Duplicación', `Proyecto ${project.id} duplicado como ${newId}`);
+            window.saveState();
+        }
+
+        function openTransferModal(stockId) {
+            const item = window.generalStock.find(s => s.id === stockId);
+            if (!item) return;
+
+            document.getElementById('transfer-stock-id').value = item.id;
+            document.getElementById('transfer-stock-desc').innerText = `${item.desc} ($${item.amount.toFixed(2)})`;
+
+            const select = document.getElementById('transfer-project-target');
+            select.innerHTML = '';
+            
+            window.projects.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.innerText = `${p.id} - ${p.name}`;
+                select.appendChild(opt);
+            });
+
+            document.getElementById('transfer-stock-modal').classList.remove('hidden');
+            document.getElementById('transfer-stock-modal').classList.add('flex');
+            lucide.createIcons();
+        }
+
+        function closeTransferModal() {
+            document.getElementById('transfer-stock-modal').classList.add('hidden');
+            document.getElementById('transfer-stock-modal').classList.remove('flex');
+        }
+
+        function handleTransferSubmit(e) {
+            e.preventDefault();
+            const stockId = parseInt(document.getElementById('transfer-stock-id').value);
+            const targetProjectId = document.getElementById('transfer-project-target').value;
+
+            const stockIndex = window.generalStock.findIndex(s => s.id === stockId);
+            const targetProject = window.projects.find(p => p.id === targetProjectId);
+
+            if (stockIndex !== -1 && targetProject) {
+                const stockItem = window.generalStock[stockIndex];
+
+                targetProject.costs.push({
+                    id: Date.now(),
+                    type: 'Materiales',
+                    desc: `[Traspaso Stock] ${stockItem.desc}`,
+                    provider: stockItem.provider,
+                    amount: stockItem.amount,
+                    date: new Date().toISOString().split('T')[0]
+                });
+
+                window.addLog('Traspaso de Stock', `Insumo "${stockItem.desc}" ($${stockItem.amount}) transferido a ${targetProject.id}`);
+                window.generalStock.splice(stockIndex, 1);
+
+                closeTransferModal();
+                window.saveState();
+            }
+        }
+
+        function initCharts() {
+            const ctxCostos = document.getElementById('chart-costos-distribucion').getContext('2d');
+            chartCostos = new Chart(ctxCostos, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Materiales', 'Salarios', 'Gasolina', 'Insumos Específicos'],
+                    datasets: [{
+                        data: [0, 0, 0, 0],
+                        backgroundColor: ['#f59e0b', '#3b82f6', '#f43f5e', '#a855f7'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { color: '#94a3b8', font: { size: 10 } } } }
+                }
+            });
+
+            const ctxPortafolio = document.getElementById('chart-portafolio-estatus').getContext('2d');
+            chartPortafolio = new Chart(ctxPortafolio, {
+                type: 'bar',
+                data: {
+                    labels: ['Cotizados', 'En Ejecución', 'Finalizados'],
+                    datasets: [{
+                        label: 'Proyectos',
+                        data: [0, 0, 0],
+                        backgroundColor: ['#64748b', '#3b82f6', '#10b981'],
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
+                        y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#334155' } }
+                    }
+                }
+            });
+        }
+
+        function updateCharts() {
+            if (!chartCostos || !chartPortafolio) return;
+
+            let mat = 0, sal = 0, gas = 0, ext = 0;
+            let cotizados = 0, ejecucion = 0, finalizados = 0;
+
+            (window.projects || []).forEach(p => {
+                if (p.status === 'Cotizado') cotizados++;
+                if (p.status === 'En Ejecución') ejecucion++;
+                if (p.status === 'Finalizado') finalizados++;
+
+                (p.costs || []).forEach(c => {
+                    const t = c.type || 'Materiales';
+                    if (t === 'Materiales') mat += c.amount;
+                    if (t === 'Salario') sal += c.amount;
+                    if (t === 'Gasolina') gas += c.amount;
+                    if (t === 'Insumos Específicos') ext += c.amount;
+                });
+            });
+
+            chartCostos.data.datasets[0].data = [mat, sal, gas, ext];
+            chartCostos.update();
+
+            chartPortafolio.data.datasets[0].data = [cotizados, ejecucion, finalizados];
+            chartPortafolio.update();
+        }
+
+        async function processPDFCotizacion(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const statusEl = document.getElementById('pdf-status');
+            statusEl.classList.remove('hidden');
+            statusEl.innerText = "Procesando PDF...";
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                let fullText = "";
+
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    fullText += textContent.items.map(item => item.str).join(" ") + " ";
+                }
+
+                const regexTotal = /(?:total|monto|neto|importe)[\s\:\$]*([0-9]{1,3}(?:\,[0-9]{3})*(?:\.[0-9]{2})?)/gi;
+                let matches = [], match;
+                while ((match = regexTotal.exec(fullText)) !== null) {
+                    let val = parseFloat(match[1].replace(/,/g, ''));
+                    if (!isNaN(val)) matches.push(val);
+                }
+
+                if (matches.length > 0) {
+                    const detectedTotal = Math.max(...matches);
+                    document.getElementById('project-ingreso').value = detectedTotal.toFixed(2);
+                    statusEl.innerText = `✓ Total detectado: $${detectedTotal.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+                    statusEl.className = "text-[11px] text-emerald-400 font-medium mt-2";
+                } else {
+                    statusEl.innerText = "PDF leído. Ingresa el monto manualmente.";
+                    statusEl.className = "text-[11px] text-amber-400 font-medium mt-2";
+                }
+            } catch (err) {
+                statusEl.innerText = "Error al leer PDF.";
+                statusEl.className = "text-[11px] text-rose-400 font-medium mt-2";
+            }
+        }
+
+        function handleProjectSubmit(e) {
+            e.preventDefault();
+            const editId = document.getElementById('editing-project-id').value;
+            const name = document.getElementById('project-name').value;
+            const category = document.getElementById('project-category').value;
+            const ingreso = parseFloat(document.getElementById('project-ingreso').value) || 0;
+            const status = document.getElementById('project-status').value;
+            const includesIva = document.getElementById('project-include-iva').checked;
+
+            if (editId) {
+                const project = window.projects.find(p => p.id === editId);
+                if (project) {
+                    project.name = name;
+                    project.category = category;
+                    project.ingreso = ingreso;
+                    project.status = status;
+                    project.includesIva = includesIva;
+                    window.addLog('Proyecto Actualizado', `Modificado ${project.id} - ${name}`);
+                }
+            } else {
+                const newId = 'PRJ-' + Math.floor(100 + Math.random() * 900);
+                window.projects.unshift({
+                    id: newId,
+                    name,
+                    category,
+                    ingreso,
+                    includesIva,
+                    status,
+                    dateCreated: new Date().toISOString().split('T')[0],
+                    payments: [],
+                    costs: []
+                });
+                window.addLog('Nuevo Proyecto', `Creado ${newId} - ${name}`);
+            }
+
+            window.saveState();
+            resetProjectForm();
+        }
+
+        function editProject(projectId) {
+            const project = window.projects.find(p => p.id === projectId);
+            if (!project) return;
+
+            document.getElementById('editing-project-id').value = project.id;
+            document.getElementById('project-name').value = project.name;
+            document.getElementById('project-category').value = project.category;
+            document.getElementById('project-ingreso').value = project.ingreso;
+            document.getElementById('project-status').value = project.status;
+            document.getElementById('project-include-iva').checked = !!project.includesIva;
+
+            updateTaxCalculations();
+
+            document.getElementById('form-title').innerHTML = `<i data-lucide="edit" class="w-5 h-5 text-amber-400"></i> Editando ${project.id}`;
+            document.getElementById('submit-btn-text').innerText = "Actualizar Proyecto";
+            document.getElementById('cancel-edit-btn').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function resetProjectForm() {
+            document.getElementById('project-form').reset();
+            document.getElementById('editing-project-id').value = '';
+            document.getElementById('tax-summary-box').classList.add('hidden');
+            document.getElementById('form-title').innerHTML = `<i data-lucide="plus-circle" class="w-5 h-5 text-indigo-400"></i> Nuevo Registro de Proyecto`;
+            document.getElementById('submit-btn-text').innerText = "Crear Proyecto";
+            document.getElementById('cancel-edit-btn').classList.add('hidden');
+            document.getElementById('pdf-status').classList.add('hidden');
+            lucide.createIcons();
+        }
+
+        function calculateSimulation() {
+            const costo = parseFloat(document.getElementById('sim-costo').value) || 0;
+            const margen = parseFloat(document.getElementById('sim-margen').value) || 0;
+            const utilidad = costo * (margen / 100);
+            const totalSugerido = costo + utilidad;
+
+            document.getElementById('sim-res-utilidad').innerText = `$${utilidad.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+            document.getElementById('sim-res-total').innerText = `$${totalSugerido.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+        }
+
+        function applySimulatedToForm() {
+            const costo = parseFloat(document.getElementById('sim-costo').value) || 0;
+            const margen = parseFloat(document.getElementById('sim-margen').value) || 0;
+            const totalSugerido = costo + (costo * (margen / 100));
+
+            if (totalSugerido > 0) {
+                document.getElementById('project-ingreso').value = totalSugerido.toFixed(2);
+                updateTaxCalculations();
+            }
+        }
+
+        function switchCostTab(type) {
+            document.getElementById('modal-cost-type').value = type;
+            document.querySelectorAll('.cost-tab-btn').forEach(btn => {
+                btn.className = "cost-tab-btn px-3 py-2 font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center gap-1.5 whitespace-nowrap";
+            });
+            const activeBtn = document.getElementById(`tab-${type}`);
+            if (activeBtn) activeBtn.className = "cost-tab-btn px-3 py-2 font-medium border-b-2 border-indigo-500 text-indigo-400 flex items-center gap-1.5 whitespace-nowrap";
+        }
+
+        function openCostModal(projectId, costId = null, initialType = 'Materiales') {
+            document.getElementById('modal-project-id').value = projectId;
+            document.getElementById('modal-cost-id').value = costId || '';
+            
+            if (costId) {
+                const project = window.projects.find(p => p.id === projectId);
+                const cost = project ? project.costs.find(c => c.id === costId) : null;
+                if (cost) {
+                    switchCostTab(cost.type || 'Materiales');
+                    document.getElementById('cost-description').value = cost.desc;
+                    document.getElementById('cost-provider').value = cost.provider;
+                    document.getElementById('cost-amount').value = cost.amount;
+                }
+            } else {
+                switchCostTab(initialType);
+                document.getElementById('cost-description').value = '';
+                document.getElementById('cost-provider').value = '';
+                document.getElementById('cost-amount').value = '';
+            }
+
+            document.getElementById('cost-modal').classList.remove('hidden');
+            document.getElementById('cost-modal').classList.add('flex');
+            lucide.createIcons();
+        }
+
+        function closeCostModal() {
+            document.getElementById('cost-modal').classList.add('hidden');
+            document.getElementById('cost-modal').classList.remove('flex');
+        }
+
+        function openStockModal(itemId = null) {
+            document.getElementById('stock-item-id').value = itemId || '';
+            if (itemId) {
+                const item = window.generalStock.find(s => s.id === itemId);
+                if (item) {
+                    document.getElementById('stock-description').value = item.desc;
+                    document.getElementById('stock-provider').value = item.provider;
+                    document.getElementById('stock-category').value = item.category;
+                    document.getElementById('stock-amount').value = item.amount;
+                }
+            } else {
+                document.getElementById('stock-description').value = '';
+                document.getElementById('stock-provider').value = '';
+                document.getElementById('stock-amount').value = '';
+            }
+
+            document.getElementById('stock-modal').classList.remove('hidden');
+            document.getElementById('stock-modal').classList.add('flex');
+            lucide.createIcons();
+        }
+
+        function closeStockModal() {
+            document.getElementById('stock-modal').classList.add('hidden');
+            document.getElementById('stock-modal').classList.remove('flex');
+        }
+
+        function handleStockSubmit(e) {
+            e.preventDefault();
+            const itemId = document.getElementById('stock-item-id').value;
+            const desc = document.getElementById('stock-description').value;
+            const provider = document.getElementById('stock-provider').value || 'Genérico';
+            const category = document.getElementById('stock-category').value;
+            const amount = parseFloat(document.getElementById('stock-amount').value) || 0;
+
+            if (itemId) {
+                const item = window.generalStock.find(s => s.id == itemId);
+                if (item) {
+                    item.desc = desc; item.provider = provider; item.category = category; item.amount = amount;
+                }
+            } else {
+                window.generalStock.unshift({ id: Date.now(), desc, provider, category, amount, date: new Date().toISOString().split('T')[0] });
+            }
+
+            closeStockModal();
+            window.saveState();
+        }
+
+        function deleteStockItem(id) {
+            if (confirm("¿Eliminar este insumo del almacén?")) {
+                window.generalStock = window.generalStock.filter(s => s.id !== id);
+                window.saveState();
+            }
+        }
+
+        function handleCostSubmit(e) {
+            e.preventDefault();
+            const projectId = document.getElementById('modal-project-id').value;
+            const costId = document.getElementById('modal-cost-id').value;
+            const type = document.getElementById('modal-cost-type').value || 'Materiales';
+            const desc = document.getElementById('cost-description').value;
+            const provider = document.getElementById('cost-provider').value || 'Genérico';
+            const amount = parseFloat(document.getElementById('cost-amount').value) || 0;
+
+            const project = window.projects.find(p => p.id === projectId);
+            if (project) {
+                if (costId) {
+                    const cost = project.costs.find(c => c.id == costId);
+                    if (cost) { cost.type = type; cost.desc = desc; cost.provider = provider; cost.amount = amount; }
+                } else {
+                    project.costs.push({ id: Date.now(), type, desc, provider, amount, date: new Date().toISOString().split('T')[0] });
+                }
+                window.saveState();
+            }
+            closeCostModal();
+        }
+
+        function deleteCost(projectId, costId) {
+            const project = window.projects.find(p => p.id === projectId);
+            if (project) {
+                project.costs = project.costs.filter(c => c.id !== costId);
+                window.saveState();
+            }
+        }
+
+        function deleteProject(projectId) {
+            if (confirm("¿Eliminar proyecto y registros asociados?")) {
+                window.projects = window.projects.filter(p => p.id !== projectId);
+                window.saveState();
+            }
+        }
+
+        function openHistoryModal() {
+            const container = document.getElementById('history-logs-container');
+            container.innerHTML = '';
+            (window.activityLogs || []).forEach(log => {
+                const item = document.createElement('div');
+                item.className = "bg-slate-900/80 p-2.5 rounded-lg border border-slate-700/60 text-xs flex justify-between items-start";
+                item.innerHTML = `<div><span class="font-bold text-indigo-400">[${log.action}]</span><p class="text-slate-200 mt-0.5">${log.detail}</p></div><span class="text-[10px] text-slate-500 whitespace-nowrap ml-2">${log.timestamp}</span>`;
+                container.appendChild(item);
+            });
+            document.getElementById('history-modal').classList.remove('hidden');
+            document.getElementById('history-modal').classList.add('flex');
+            lucide.createIcons();
+        }
+
+        function closeHistoryModal() {
+            document.getElementById('history-modal').classList.add('hidden');
+            document.getElementById('history-modal').classList.remove('flex');
+        }
+
+        function exportJSONData() {
+            const fullData = { projects: window.projects, generalStock: window.generalStock, activityLogs: window.activityLogs };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullData, null, 2));
+            const anchor = document.createElement('a');
+            anchor.setAttribute("href", dataStr);
+            anchor.setAttribute("download", `ImpetecHub_Pro_Backup_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+        }
+
+        function importJSONData(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported.projects) {
+                        window.projects = imported.projects;
+                        window.generalStock = imported.generalStock || [];
+                        window.activityLogs = imported.activityLogs || [];
+                        window.saveState();
+                        alert("Restauración completada.");
+                    }
+                } catch (err) { alert("Archivo JSON no válido."); }
+            };
+            reader.readAsText(file);
+        }
+
+        function exportToCSV() {
+            let csv = "data:text/csv;charset=utf-8,Tipo,ID_Proyecto,Nombre,Categoria,Estatus,Tipo_Gasto,Descripcion,Proveedor,Monto\n";
+            (window.projects || []).forEach(p => {
+                (p.costs || []).forEach(c => {
+                    csv += `"Proyecto","${p.id}","${p.name}","${p.category}","${p.status}","${c.type}","${c.desc}","${c.provider}",${c.amount}\n`;
+                });
+            });
+            const encoded = encodeURI(csv);
+            const link = document.createElement("a");
+            link.setAttribute("href", encoded);
+            link.setAttribute("download", `Reporte_Impetec_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        }
+
+        function renderProjects() {
+            // Render Stock Section
+            const stockBody = document.getElementById('stock-table-body');
+            const stockEmpty = document.getElementById('stock-empty-msg');
+            stockBody.innerHTML = '';
+            let totalStockAmount = 0;
+
+            const stockList = window.generalStock || [];
+
+            if (stockList.length === 0) {
+                stockEmpty.classList.remove('hidden');
+            } else {
+                stockEmpty.classList.add('hidden');
+                stockList.forEach(s => {
+                    totalStockAmount += s.amount;
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-700/30 transition";
+                    tr.innerHTML = `
+                        <td class="py-2.5 px-4 text-slate-400">${s.date || 'N/A'}</td>
+                        <td class="py-2.5 px-4 font-medium text-slate-100">${s.desc}</td>
+                        <td class="py-2.5 px-4 text-slate-400">${s.provider}</td>
+                        <td class="py-2.5 px-4"><span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-cyan-300 font-mono text-[10px]">${s.category}</span></td>
+                        <td class="py-2.5 px-4 text-right font-semibold text-cyan-300">-$${s.amount.toLocaleString('es-MX', {minimumFractionDigits: 2})}</td>
+                        <td class="py-2.5 px-4 text-center no-print">
+                            <button onclick="openTransferModal(${s.id})" title="Traspasar Insumo a Proyecto" class="text-xs bg-cyan-600/20 text-cyan-300 border border-cyan-500/30 px-2 py-1 rounded hover:bg-cyan-600/30 mr-2">
+                                <i data-lucide="arrow-right-left" class="w-3 h-3 inline"></i> Usar en Proyecto
+                            </button>
+                            <button onclick="openStockModal(${s.id})" title="Editar" class="text-slate-400 hover:text-cyan-400 mr-1"><i data-lucide="edit-2" class="w-3.5 h-3.5 inline"></i></button>
+                            <button onclick="deleteStockItem(${s.id})" title="Eliminar" class="text-slate-500 hover:text-rose-400"><i data-lucide="trash-2" class="w-3.5 h-3.5 inline"></i></button>
+                        </td>
+                    `;
+                    stockBody.appendChild(tr);
+                });
+            }
+
+            // Render Projects
+            const container = document.getElementById('projects-container');
+            const searchVal = document.getElementById('search-input').value.toLowerCase();
+            const filterStatus = document.getElementById('filter-status').value;
+            const filterCategory = document.getElementById('filter-category').value;
+            const dateFrom = document.getElementById('filter-date-from').value;
+            const dateTo = document.getElementById('filter-date-to').value;
+
+            container.innerHTML = '';
+
+            let totalIngresos = 0;
+            let totalCobrado = 0;
+            let totalEgresosProyectos = 0;
+            let proyectosRiesgo = [];
+
+            const projectList = window.projects || [];
+
+            projectList.forEach(project => {
+                const totalCostosProject = (project.costs || []).reduce((sum, c) => sum + c.amount, 0);
+                const totalPagadoCliente = (project.payments || []).reduce((sum, p) => sum + p.amount, 0);
+                
+                const montoTotalCotizadoConIva = project.includesIva ? project.ingreso * 1.16 : project.ingreso;
+                const saldoPendienteCobro = montoTotalCotizadoConIva - totalPagadoCliente;
+
+                const utilidadReal = project.ingreso - totalCostosProject;
+                const esPerdida = utilidadReal < 0;
+                const consumoPct = project.ingreso > 0 ? Math.min(((totalCostosProject / project.ingreso) * 100), 100).toFixed(0) : 0;
+                const cobroPct = montoTotalCotizadoConIva > 0 ? Math.min(((totalPagadoCliente / montoTotalCotizadoConIva) * 100), 100).toFixed(0) : 0;
+
+                totalIngresos += project.ingreso;
+                totalCobrado += totalPagadoCliente;
+                totalEgresosProyectos += totalCostosProject;
+                
+                if (esPerdida || consumoPct >= 85) {
+                    proyectosRiesgo.push(`${project.id} (${project.name})`);
+                }
+
+                // Filtros
+                if (searchVal && !project.name.toLowerCase().includes(searchVal) && !project.category.toLowerCase().includes(searchVal)) return;
+                if (filterStatus === 'Con Pérdida' && !esPerdida) return;
+                if (filterStatus === 'Pendiente Cobro' && saldoPendienteCobro <= 0) return;
+                if (filterStatus === 'Finalizado' && project.status !== 'Finalizado') return;
+                if (filterStatus === 'En Ejecución' && project.status !== 'En Ejecución') return;
+                if (filterCategory !== 'Todas' && project.category !== filterCategory) return;
+                if (dateFrom && project.dateCreated && project.dateCreated < dateFrom) return;
+                if (dateTo && project.dateCreated && project.dateCreated > dateTo) return;
+
+                const currentActiveTab = activeProjectTabs[project.id] || 'Todos';
+
+                const filteredCosts = (project.costs || []).filter(c => currentActiveTab === 'Todos' ? true : (c.type || 'Materiales') === currentActiveTab);
+
+                let costsListHTML = filteredCosts.map(c => {
+                    const type = c.type || 'Materiales';
+                    const cfg = costTypeConfigs[type] || costTypeConfigs['Materiales'];
+                    return `
+                    <div class="flex items-center justify-between text-xs bg-slate-900/70 p-2.5 rounded-lg border border-slate-800">
+                        <div class="flex items-center space-x-2">
+                            <span class="p-1 rounded ${cfg.colorClass}"><i data-lucide="${cfg.icon}" class="w-3.5 h-3.5"></i></span>
+                            <div>
+                                <p class="font-medium text-slate-200">${c.desc}</p>
+                                <p class="text-[10px] text-slate-400">${c.provider} ${c.date ? '• ' + c.date : ''}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="font-semibold text-amber-300">-$${c.amount.toLocaleString('es-MX', {minimumFractionDigits: 2})}</span>
+                            <button onclick="openCostModal('${project.id}', ${c.id})" class="text-slate-400 hover:text-amber-400 no-print"><i data-lucide="edit-2" class="w-3.5 h-3.5"></i></button>
+                            <button onclick="deleteCost('${project.id}', ${c.id})" class="text-slate-500 hover:text-rose-400 no-print"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                        </div>
+                    </div>`;
+                }).join('');
+
+                if (filteredCosts.length === 0) {
+                    costsListHTML = `<p class="text-xs text-slate-500 italic p-2">Sin registros en esta categoría.</p>`;
+                }
+
+                // Lista de abonos recibidos
+                let paymentsListHTML = (project.payments || []).map(p => `
+                    <div class="flex items-center justify-between text-xs bg-slate-900/50 p-2 rounded border border-slate-800/60">
+                        <div>
+                            <span class="font-medium text-emerald-400">${p.concept}</span>
+                            <span class="text-[10px] text-slate-500 block">${p.date}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-emerald-300">+$${p.amount.toLocaleString('es-MX', {minimumFractionDigits: 2})}</span>
+                            <button onclick="deletePayment('${project.id}', ${p.id})" class="text-slate-500 hover:text-rose-400 no-print"><i data-lucide="x" class="w-3 h-3"></i></button>
+                        </div>
+                    </div>
+                `).join('');
+
+                if (!project.payments || project.payments.length === 0) {
+                    paymentsListHTML = `<p class="text-xs text-slate-500 italic">No hay anticipos o abonos registrados.</p>`;
+                }
+
+                const detailsEl = document.createElement('details');
+                detailsEl.className = `group bg-slate-800 border ${esPerdida ? 'border-rose-500/60 shadow-rose-950/20' : 'border-slate-700'} rounded-xl shadow-md transition hover:border-slate-600 overflow-hidden`;
+
+                detailsEl.innerHTML = `
+                    <summary class="list-none p-4 cursor-pointer select-none flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-800/90 hover:bg-slate-700/40 transition">
+                        <div class="flex items-center space-x-3">
+                            <i data-lucide="chevron-down" class="chevron-icon w-4 h-4 text-slate-400 transition-transform duration-200"></i>
+                            <div>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="text-xs font-mono font-bold text-indigo-400 bg-indigo-950/80 px-2 py-0.5 rounded border border-indigo-800/50">${project.id}</span>
+                                    <h3 class="font-bold text-slate-100 text-sm sm:text-base inline">${project.name}</h3>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                                        project.status === 'Finalizado' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                                        project.status === 'En Ejecución' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                                        'bg-slate-700 text-slate-300'
+                                    }">
+                                        ${project.status}
+                                    </span>
+                                    ${project.includesIva ? '<span class="text-[9px] bg-purple-900/60 text-purple-300 border border-purple-700/50 px-1.5 py-0.2 rounded">+IVA</span>' : ''}
+                                </div>
+                                <p class="text-xs text-slate-400 mt-0.5">${project.category}</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between sm:justify-end space-x-4 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-700/60">
+                            <div class="text-right">
+                                <span class="block text-[10px] uppercase font-semibold text-slate-400">Cotizado</span>
+                                <span class="text-xs font-bold text-blue-400">$${montoTotalCotizadoConIva.toLocaleString('es-MX', {minimumFractionDigits: 2})}</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="block text-[10px] uppercase font-semibold text-slate-400">Cobrado</span>
+                                <span class="text-xs font-bold text-emerald-400">$${totalPagadoCliente.toLocaleString('es-MX', {minimumFractionDigits: 2})}</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="block text-[10px] uppercase font-semibold text-slate-400">Utilidad</span>
+                                <span class="text-xs font-bold ${esPerdida ? 'text-rose-400' : 'text-emerald-400'}">
+                                    $${utilidadReal.toLocaleString('es-MX', {minimumFractionDigits: 2})}
+                                </span>
+                            </div>
+                            
+                            <div class="flex items-center space-x-1 no-print pl-2 border-l border-slate-700" onclick="event.stopPropagation()">
+                                <button onclick="duplicateProject('${project.id}')" title="Duplicar como plantilla" class="p-1.5 text-slate-400 hover:text-indigo-400 rounded-lg bg-slate-900 border border-slate-700">
+                                    <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                                </button>
+                                <button onclick="editProject('${project.id}')" title="Editar proyecto" class="p-1.5 text-slate-400 hover:text-amber-400 rounded-lg bg-slate-900 border border-slate-700">
+                                    <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                                </button>
+                                <button onclick="deleteProject('${project.id}')" title="Eliminar proyecto" class="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg bg-slate-900 border border-slate-700">
+                                    <i data-lucide="trash" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </summary>
+
+                    <!-- Cuerpo Desplegable -->
+                    <div class="p-5 pt-3 border-t border-slate-700/60 space-y-4 bg-slate-800/40">
+                        
+                        <!-- SECCIÓN: Estado de Cobranza del Cliente -->
+                        <div class="bg-slate-900/90 p-3.5 rounded-lg border border-slate-700/80 space-y-3">
+                            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                                <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                                    <i data-lucide="wallet" class="w-4 h-4 text-emerald-400"></i> Control de Cobranza & Anticipos
+                                </span>
+                                <button onclick="openPaymentModal('${project.id}')" class="text-[11px] bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 font-medium px-2.5 py-1 rounded border border-emerald-500/30 flex items-center gap-1 no-print">
+                                    <i data-lucide="plus" class="w-3 h-3"></i> + Registrar Abono
+                                </button>
+                            </div>
+
+                            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                                <div class="bg-slate-800 p-2 rounded">
+                                    <span class="block text-[10px] text-slate-400">Total Cotizado</span>
+                                    <span class="font-bold text-slate-100">$${montoTotalCotizadoConIva.toLocaleString('es-MX', {minimumFractionDigits: 2})}</span>
+                                </div>
+                                <div class="bg-slate-800 p-2 rounded">
+                                    <span class="block text-[10px] text-slate-400">Total Recibido</span>
+                                    <span class="font-bold text-emerald-400">$${totalPagadoCliente.toLocaleString('es-MX', {minimumFractionDigits: 2})}</span>
+                                </div>
+                                <div class="bg-slate-800 p-2 rounded">
+                                    <span class="block text-[10px] text-slate-400">Pendiente Cobro</span>
+                                    <span class="font-bold ${saldoPendienteCobro > 0 ? 'text-amber-400' : 'text-emerald-400'}">$${saldoPendienteCobro.toLocaleString('es-MX', {minimumFractionDigits: 2})}</span>
+                                </div>
+                            </div>
+
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-[10px] text-slate-400">
+                                    <span>Progreso de Cobro:</span>
+                                    <span class="font-bold text-emerald-400">${cobroPct}%</span>
+                                </div>
+                                <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                    <div class="h-full bg-emerald-500" style="width: ${cobroPct}%"></div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-1 pt-1">
+                                <span class="text-[10px] font-semibold text-slate-400 uppercase">Historial de Abonos:</span>
+                                <div class="space-y-1 max-h-28 overflow-y-auto pr-1">
+                                    ${paymentsListHTML}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SECCIÓN: Costos Directos del Proyecto -->
+                        <div class="space-y-3 pt-2">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold text-slate-300 flex items-center gap-1">
+                                    <i data-lucide="shopping-bag" class="w-3.5 h-3.5 text-amber-400"></i> Gastos Directos
+                                </span>
+                                <button onclick="openCostModal('${project.id}', null, '${currentActiveTab !== 'Todos' ? currentActiveTab : 'Materiales'}')" class="text-xs bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-medium px-2.5 py-1 rounded-md border border-amber-500/20 flex items-center gap-1 no-print">
+                                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> + Registrar Gasto
+                                </button>
+                            </div>
+
+                            <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                ${costsListHTML}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(detailsEl);
+            });
+
+            // Banner Alertas Preventivas
+            const alertsBanner = document.getElementById('alerts-banner');
+            const alertsText = document.getElementById('alerts-banner-text');
+
+            if (proyectosRiesgo.length > 0) {
+                alertsBanner.classList.remove('hidden');
+                alertsText.innerText = `Los siguientes proyectos presentan sobreejecución de gastos o pérdida: ${proyectosRiesgo.join(', ')}`;
+            } else {
+                alertsBanner.classList.add('hidden');
+            }
+
+            // KPIs Globales
+            const totalPendienteCobroGlobal = totalIngresos - totalCobrado;
+            const egresosTotalesCombinados = totalEgresosProyectos + totalStockAmount;
+            const utilidadGlobalNeta = totalIngresos - egresosTotalesCombinados;
+            const margenGlobalNeta = totalIngresos > 0 ? ((utilidadGlobalNeta / totalIngresos) * 100).toFixed(1) : 0;
+
+            document.getElementById('kpi-ingresos').innerText = `$${totalIngresos.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+            document.getElementById('kpi-cobrado').innerText = `$${totalCobrado.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+            document.getElementById('kpi-por-cobrar').innerText = `Pendiente: $${totalPendienteCobroGlobal.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+            document.getElementById('kpi-egresos').innerText = `$${totalEgresosProyectos.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+            document.getElementById('kpi-stock-total').innerText = `$${totalStockAmount.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+            
+            const kpiUtilidadEl = document.getElementById('kpi-utilidad');
+            kpiUtilidadEl.innerText = `$${utilidadGlobalNeta.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+            kpiUtilidadEl.className = `text-xl font-bold ${utilidadGlobalNeta < 0 ? 'text-rose-400' : 'text-emerald-400'}`;
+            
+            document.getElementById('kpi-margen').innerText = `${margenGlobalNeta}% Margen Real`;
+
+            lucide.createIcons();
+            updateCharts();
+        }
+    </script>
+</body>
+</html>
