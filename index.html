@@ -656,6 +656,9 @@
                 // Escuchar cambios en tiempo real desde Firebase
                 const rootRef = ref(db, 'impetecHub');
                 onValue(rootRef, (snapshot) => {
+                    // Evita que la respuesta de Firebase sobrescriba un cambio local recién guardado.
+                    if (isSavingToFirebase) return;
+
                     const data = snapshot.val();
                     if (data) {
                         window.projects = data.projects || [];
@@ -728,18 +731,29 @@
             }
         }
 
-        // --- FUNCIÓN ÚNICA DE GUARDADO DIRECTO A FIREBASE ---
-        window.saveState = function() {
+        // --- GUARDADO CENTRALIZADO Y SINCRONIZACIÓN EN TIEMPO REAL ---
+        let isSavingToFirebase = false;
+
+        window.saveState = async function() {
+            // Mostrar inmediatamente en el HTML cualquier alta o modificación.
+            window.renderProjects();
+            window.updateCharts();
+
             if (isFirebaseConnected && db) {
-                set(ref(db, 'impetecHub'), {
-                    projects: window.projects,
-                    generalStock: window.generalStock,
-                    activityLogs: window.activityLogs
-                }).catch(err => console.error("Error al guardar en Firebase Realtime Database:", err));
-            } else {
-                // Renderizado preventivo si no hay credenciales configuradas
-                window.renderProjects();
-                window.updateCharts();
+                isSavingToFirebase = true;
+                try {
+                    await set(ref(db, 'impetecHub'), {
+                        projects: window.projects || [],
+                        generalStock: window.generalStock || [],
+                        activityLogs: window.activityLogs || []
+                    });
+                    console.log('✓ Datos guardados correctamente en Firebase');
+                } catch (err) {
+                    console.error('Error al guardar en Firebase Realtime Database:', err);
+                    alert('No se pudo guardar en Firebase. Los cambios se muestran en pantalla, pero revisa las reglas de Realtime Database.');
+                } finally {
+                    setTimeout(() => { isSavingToFirebase = false; }, 250);
+                }
             }
         };
 
